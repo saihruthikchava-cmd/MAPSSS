@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: waywise-safe-route
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: waywise-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: WAYWISE_DB_PATH
+        value: /var/data/waywise.db
+      - key: WAYWISE_HTTPS
+        value: "1"
+      - key: WAYWISE_SECRET_KEY
+        generateValue: true
+      - key: WAYWISE_ADMIN_PASSWORD
+        sync: false
+      - key: WAYWISE_ADMIN_EMAIL
+        sync: false
+      - key: WAYWISE_SMTP_HOST
+        sync: false
+      - key: WAYWISE_SMTP_PORT
+        value: "587"
+      - key: WAYWISE_SMTP_USER
+        sync: false
+      - key: WAYWISE_SMTP_PASSWORD
+        sync: false
+      - key: WAYWISE_SMTP_FROM
+        sync: false
