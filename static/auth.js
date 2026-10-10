@@ -1,0 +1,28 @@
+(()=>{
+  const $=id=>document.getElementById(id);
+  const gate=$('authGate'),form=$('authForm'),loginTab=$('showLogin'),registerTab=$('showRegister');
+  if(!gate||!form)return;
+  let mode='login',step='form',resetEmail='';
+  function msg(text,error=false){$('authMessage').textContent=text;$('authMessage').classList.toggle('error',error)}
+  function showMode(next){mode=next;step='form';$('authOtp').required=false;$('authNewPassword').required=false;$('authUsername').disabled=false;$('authEmail').disabled=false;$('authPassword').disabled=false;$('authOtp').value='';$('authNewPassword').value='';loginTab.classList.toggle('active',mode==='login');registerTab.classList.toggle('active',mode==='register');$('authTitle').textContent=mode==='login'?'Welcome back.':'Create your WayWise account.';$('authSubmit').querySelector('span').textContent=mode==='login'?'Log in':'Create account';$('authPassword').autocomplete=mode==='login'?'current-password':'new-password';$('authUsername').required=mode!=='forgot';$('authPassword').required=mode!=='forgot';$('authEmailGroup').classList.toggle('hidden',mode==='login');$('authEmail').required=mode==='register';$('authOtpGroup').classList.add('hidden');$('authResetGroup').classList.add('hidden');$('authPassword').classList.remove('hidden');$('authUsername').classList.remove('hidden');$('authEmail').disabled=false;$('authPassword').disabled=false;$('authUsername').disabled=false;$('forgotPasswordBtn').classList.toggle('hidden',mode!=='login');$('authHint').textContent=mode==='login'?'Enter your username and password to continue.':'Add your email address. We will send a verification code.';msg('')}
+  function setSignedIn(username,role){gate.classList.add('hidden');$('signedInUser').textContent='Signed in: '+username;$('signedInUser').classList.remove('hidden');$('logoutBtn').classList.remove('hidden');$('adminLink').classList.toggle('hidden',role!=='admin');if(role==='admin')window.location.href='/admin'}
+  async function post(url,payload){const r=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed.');return d}
+  async function checkStatus(){try{const r=await fetch('/api/auth/status',{credentials:'same-origin'});const d=await r.json();if(d.authenticated)setSignedIn(d.username,d.role);else gate.classList.remove('hidden')}catch{gate.classList.remove('hidden');msg('Cannot reach the server. Make sure the Flask app is running.',true)}}
+  loginTab.addEventListener('click',()=>showMode('login'));registerTab.addEventListener('click',()=>showMode('register'));
+  $('forgotPasswordBtn').addEventListener('click',()=>{mode='forgot';step='request';$('authTitle').textContent='Reset your password';$('authUsername').classList.add('hidden');$('authUsername').required=false;$('authEmailGroup').classList.remove('hidden');$('authEmail').required=true;$('authPassword').classList.add('hidden');$('authPassword').required=false;$('authOtpGroup').classList.add('hidden');$('authResetGroup').classList.add('hidden');$('forgotPasswordBtn').classList.add('hidden');$('authSubmit').querySelector('span').textContent='Send code';$('authHint').textContent='Enter the email address linked to your account.';msg('')});
+  form.addEventListener('submit',async e=>{e.preventDefault();const button=$('authSubmit');button.disabled=true;msg('Please wait…');try{let data;
+    if(mode==='login'){
+      data=await post('/api/auth/login',{username:$('authUsername').value.trim(),password:$('authPassword').value});form.reset();setSignedIn(data.username,data.role);msg('');
+    }else if(mode==='register'&&step==='form'){
+      data=await post('/api/auth/register/request-otp',{username:$('authUsername').value.trim(),email:$('authEmail').value.trim(),password:$('authPassword').value});step='verify';$('authOtpGroup').classList.remove('hidden');$('authOtp').required=true;$('authUsername').disabled=true;$('authEmail').disabled=true;$('authPassword').disabled=true;$('authSubmit').querySelector('span').textContent='Verify and create account';$('authHint').textContent='Enter the 6-digit code sent to your email. It expires in 10 minutes.';msg(data.message);
+    }else if(mode==='register'&&step==='verify'){
+      data=await post('/api/auth/register/verify',{otp:$('authOtp').value.trim()});form.reset();setSignedIn(data.username,'user');msg('');
+    }else if(mode==='forgot'&&step==='request'){
+      resetEmail=$('authEmail').value.trim();data=await post('/api/auth/forgot/request-otp',{email:resetEmail});step='reset';$('authOtpGroup').classList.remove('hidden');$('authResetGroup').classList.remove('hidden');$('authOtp').required=true;$('authNewPassword').required=true;$('authSubmit').querySelector('span').textContent='Reset password';$('authHint').textContent='Enter the email code and choose a new password.';msg(data.message);
+    }else if(mode==='forgot'&&step==='reset'){
+      data=await post('/api/auth/forgot/reset',{email:resetEmail,otp:$('authOtp').value.trim(),password:$('authNewPassword').value});showMode('login');msg('Password reset. Log in with your username and new password.');
+    }
+  }catch(err){msg(err.message||'Could not connect to the server.',true)}finally{button.disabled=false}});
+  $('logoutBtn').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});}finally{gate.classList.remove('hidden');$('signedInUser').classList.add('hidden');$('logoutBtn').classList.add('hidden');$('adminLink').classList.add('hidden');showMode('login');$('authPassword').value='';}});
+  showMode('login');checkStatus();
+})();

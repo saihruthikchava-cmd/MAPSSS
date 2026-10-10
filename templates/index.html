@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WayWise — Safe Route Navigator</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+</head><body>
+<div id="authGate" class="auth-gate" aria-modal="true" role="dialog" aria-labelledby="authTitle">
+  <section class="auth-card">
+    <div class="auth-brand"><span class="brand-icon">↗</span><span>waywise<span class="brand-dot">.</span><small>SAFE ROUTE NAVIGATOR</small></span></div>
+    <p class="eyebrow">WELCOME TO WAYWISE</p><h1 id="authTitle">Your journey starts here.</h1>
+    <p class="auth-subtitle">Sign in or create an account to use route planning, reports, and the assistant.</p>
+    <div class="auth-tabs"><button id="showLogin" class="auth-tab active" type="button">Log in</button><button id="showRegister" class="auth-tab" type="button">Create account</button></div>
+    <form id="authForm" autocomplete="on">
+      <label for="authUsername">USERNAME</label><input id="authUsername" name="username" minlength="3" maxlength="30" autocomplete="username" required placeholder="Choose a username">
+      <div id="authEmailGroup"><label for="authEmail">EMAIL ADDRESS</label><input id="authEmail" name="email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com"></div>
+      <label for="authPassword">PASSWORD</label><input id="authPassword" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required placeholder="At least 8 characters">
+      <div id="authOtpGroup" class="hidden"><label for="authOtp">EMAIL VERIFICATION CODE</label><input id="authOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code"></div>
+      <div id="authResetGroup" class="hidden"><label for="authNewPassword">NEW PASSWORD</label><input id="authNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters"></div>
+      <p id="authHint" class="auth-hint">Enter your username and password to continue.</p>
+      <button id="authSubmit" class="primary-button auth-submit" type="submit"><span>Log in</span><b>→</b></button>
+      <div id="authMessage" class="message" role="status" aria-live="polite"></div>
+      <button id="forgotPasswordBtn" class="text-action small-action" type="button">Forgot password?</button>
+    </form>
+    <p class="auth-security">🔒 Passwords are stored as secure hashes in the local database, not as readable text.</p>
+  </section>
+</div>
+<header class="topbar"><a class="brand" href="#"><span class="brand-icon">↗</span><span>waywise<span class="brand-dot">.</span><small>SAFE ROUTE NAVIGATOR</small></span></a><div class="top-actions"><span class="live-pill"><i></i> Community-powered</span><span id="signedInUser" class="signed-in-user hidden"></span><a id="adminLink" class="logout-button hidden" href="/admin">Admin dashboard</a><button id="logoutBtn" class="logout-button hidden" type="button">Log out</button><button id="headerLocate" class="icon-button" title="Use current location">◎</button></div></header>
+<main class="app-shell">
+<section class="welcome"><div><p class="eyebrow">YOUR JOURNEY, MADE CLEARER</p><h1>Find your way with <span>more confidence.</span></h1><p class="welcome-copy">Plan a route, explore nearby places, and help your community share local hazards.</p></div><div class="welcome-art" aria-hidden="true"><span class="art-ring ring-one"></span><span class="art-ring ring-two"></span><span class="art-pin">↗</span><span class="art-dot dot-one"></span><span class="art-dot dot-two"></span></div></section>
+<section class="planner-card">
+<div class="planner-heading"><div><span class="step-number">01</span><div><p class="eyebrow">PLAN YOUR TRIP</p><h2>Where would you like to go?</h2></div></div><button id="swapBtn" class="swap-button">⇅ <span>Swap</span></button></div>
+<div class="search-grid"><div class="location-fields">
+<div class="field-wrap"><span class="field-symbol start-symbol">●</span><div class="field-content"><label for="start">FROM</label><input id="start" autocomplete="off" placeholder="Choose starting point" aria-autocomplete="list"><div id="startSuggestions" class="suggestions" role="listbox"></div></div><button class="field-clear" data-clear="start" aria-label="Clear start">×</button></div>
+<div class="route-connector"></div>
+<div class="field-wrap"><span class="field-symbol end-symbol">◆</span><div class="field-content"><label for="destination">TO</label><input id="destination" autocomplete="off" placeholder="Where are you heading?" aria-autocomplete="list"><div id="endSuggestions" class="suggestions" role="listbox"></div></div><button class="field-clear" data-clear="destination" aria-label="Clear destination">×</button></div>
+</div><button id="routeBtn" class="primary-button"><span>Find my route</span><b>→</b></button></div>
+<div class="planner-bottom"><button id="locateBtn" class="text-action">◎ Use my current location</button><span class="privacy-note">Location access is optional</span></div><div id="routeMessage" class="message" role="status"></div>
+<div class="route-settings"><div class="setting"><label for="routePreference">ROUTE PREFERENCE</label><select id="routePreference"><option value="recommended">Recommended route</option><option value="shortest">Shortest distance</option><option value="fastest">Estimated fastest</option></select></div>
+<label class="toggle-setting"><input id="showHazards" type="checkbox" checked><span class="toggle-ui"></span><span><strong>Show hazard reports</strong><small>Display community reports</small></span></label>
+<label class="toggle-setting"><input id="showRoutes" type="checkbox" checked><span class="toggle-ui"></span><span><strong>Show route alternatives</strong><small>Compare available routes</small></span></label></div>
+<div id="routesList" class="routes-list"></div><div id="recentWrap" class="recent-wrap hidden"><span class="mini-label">RECENT SEARCHES</span><div id="recentSearches" class="recent-searches"></div><button id="clearRecent" class="text-action small-action">Clear history</button></div>
+</section>
+<section class="workspace"><div class="map-card"><div class="map-head"><div><p class="eyebrow">LIVE MAP VIEW</p><h2>Explore your surroundings</h2><p class="muted">Click anywhere on the map to select a report location.</p></div><button id="resetMap" class="small-outline">Reset map ↺</button></div>
+<div class="map-tools"><span class="map-label"><i class="legend-route"></i> Route <i class="legend-hazard"></i> Reported hazard</span><div class="map-tool-buttons"><button id="zoomToReports" class="small-outline">◎ Reports</button><button id="fullscreenBtn" class="small-outline">⛶ Fullscreen</button></div></div><div id="map"></div><div class="map-foot"><span>Map data © OpenStreetMap contributors</span><span>Estimates are not live traffic predictions</span></div></div>
+<aside class="community-column"><section class="side-card report-card"><div class="side-title"><div class="side-icon coral">＋</div><div><p class="eyebrow">COMMUNITY CARE</p><h2>Report a hazard</h2></div></div><p class="muted">Share an issue you noticed to help others make informed decisions.</p>
+<div id="selectedLocation" class="selected-location"><span>⌖</span> Click the map to choose a location</div>
+<label for="hazardType">WHAT DID YOU NOTICE?</label><select id="hazardType"><option>Poor lighting</option><option>Waterlogging</option><option>Accident spot</option><option>Road damage / obstruction</option><option>Isolated area</option><option>Unsafe crossing</option><option>Other</option></select>
+<label for="description">ADD A NOTE <span class="optional">(optional)</span></label><textarea id="description" rows="3" maxlength="500" placeholder="Add helpful details, such as a street corner…"></textarea><div class="character-count"><span>Keep reports factual and respectful.</span><span id="charCount">0/500</span></div>
+<button id="reportBtn" class="report-button">Submit community report <b>→</b></button><div id="reportMessage" class="message" role="status"></div></section>
+<section class="side-card reports-card"><div class="reports-heading"><div><p class="eyebrow">LOCAL AWARENESS</p><h2>Recent reports</h2></div><span id="hazardCount" class="count-badge">0</span></div>
+<div class="filter-row"><label for="hazardFilter">Filter</label><select id="hazardFilter"><option value="all">All categories</option><option>Poor lighting</option><option>Waterlogging</option><option>Accident spot</option><option>Road damage / obstruction</option><option>Isolated area</option><option>Unsafe crossing</option><option>Other</option></select></div>
+<div id="hazardList" class="hazard-list"><p class="muted">Loading reports…</p></div><p class="safety-note">Reports may be unverified. This prototype cannot guarantee that a route is safe.</p></section></aside></section>
+
+<section class="feedback-card" aria-labelledby="feedbackTitle">
+  <div class="feedback-intro">
+    <p class="eyebrow">HELP US IMPROVE WAYWISE</p>
+    <h2 id="feedbackTitle">Share your feedback</h2>
+    <p class="muted">Tell us what worked, what was confusing, or what we should improve. Your feedback is saved in the project database.</p>
+  </div>
+  <form id="feedbackForm">
+    <div class="feedback-fields">
+      <div class="feedback-field">
+        <label for="feedbackCategory">FEEDBACK TYPE</label>
+        <select id="feedbackCategory" required>
+          <option value="Suggestion">Suggestion</option>
+          <option value="Bug report">Bug report</option>
+          <option value="Route feedback">Route feedback</option>
+          <option value="Map feedback">Map feedback</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="feedback-field">
+        <label for="feedbackRating">YOUR RATING</label>
+        <select id="feedbackRating" required>
+          <option value="5">5 — Excellent</option>
+          <option value="4">4 — Good</option>
+          <option value="3">3 — Okay</option>
+          <option value="2">2 — Needs improvement</option>
+          <option value="1">1 — Poor</option>
+        </select>
+      </div>
+    </div>
+    <label for="feedbackMessage">YOUR COMMENTS</label>
+    <textarea id="feedbackMessage" rows="3" maxlength="1000" required placeholder="Share your suggestion or describe a problem…"></textarea>
+    <div class="character-count"><span>Do not include passwords or sensitive personal details.</span><span id="feedbackCharCount">0/1000</span></div>
+    <button id="feedbackSubmit" class="primary-button feedback-submit" type="submit"><span>Send feedback</span><b>→</b></button>
+    <div id="feedbackStatus" class="message" role="status" aria-live="polite"></div>
+  </form>
+</section>
+\n<footer><span>waywise<span class="brand-dot">.</span> <span class="footer-muted">Community route-planning prototype</span></span><span>For safer, more informed journeys</span></footer></main>
+<section class="chat-widget" aria-label="WayWise chatbot">
+  <button id="chatToggle" class="chat-launcher" aria-expanded="false" aria-controls="chatPanel"><span class="chat-launch-icon">✦</span><span>Ask WayWise</span><span class="chat-launch-dot"></span></button>
+  <div id="chatPanel" class="chat-panel hidden" role="dialog" aria-label="Chat with WayWise">
+    <div class="chat-head"><div class="chat-avatar">✦</div><div><strong>WayWise assistant</strong><small><i></i> Here to help</small></div><button id="voiceSpeakToggle" class="voice-speak-toggle" type="button" aria-pressed="true" title="Toggle spoken replies">🔊 Voice on</button><button id="chatClose" class="chat-close" aria-label="Close chat">×</button></div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-bubble bot">Hi! 👋 I can help you plan a route, report a hazard, or understand the map. What would you like to know?</div></div>
+    <div class="chat-quick"><button data-chat-prompt="How do I plan a route?">Plan a route</button><button data-chat-prompt="How do I report a hazard?">Report a hazard</button></div>
+    <form id="chatForm" class="chat-form"><button id="voiceMic" class="voice-mic" type="button" aria-label="Speak your question" title="Speak your question">🎙️</button><input id="chatInput" maxlength="1000" autocomplete="off" placeholder="Ask or tap the mic…" aria-label="Your message" required><button id="chatSend" aria-label="Send message">➤</button></form><p id="voiceStatus" class="voice-status" aria-live="polite">Tap the microphone to talk.</p>
+    <p class="chat-disclaimer">Demo assistant · Not an emergency service</p>
+  </div>
+</section>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script src="{{ url_for('static', filename='auth.js') }}"></script><script src="{{ url_for('static', filename='script.js') }}"></script>
+</body></html>
